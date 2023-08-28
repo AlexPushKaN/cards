@@ -1,6 +1,5 @@
 import UIKit
 
-
 protocol ShapeLayerProtocol: CAShapeLayer {
     init(size: CGSize, fillColor: CGColor)
 }
@@ -10,7 +9,6 @@ extension ShapeLayerProtocol {
         fatalError("init() не может быть использован для создания экземпляра")
     }
 }
-
 
 class BackSideCircle: CAShapeLayer, ShapeLayerProtocol {
     

@@ -2,6 +2,7 @@ import UIKit
 
 protocol FlippableView: UIView {
     var isFlipped: Bool { get set }
+    var boardSize: CGSize { get set }
     var flipCompletionHandler: ((FlippableView) -> Void)? { get set }
     func flip(all: Bool)
 }
@@ -17,10 +18,10 @@ class CardView<ShapeType: ShapeLayerProtocol>: UIView, FlippableView {
     var flipCompletionHandler: ((FlippableView) -> Void)?
     var color: UIColor
     var cornerRadius = 20.0
+    var boardSize: CGSize
     lazy var frontSideView: UIView = self.getFrontSideView()
     lazy var backSideView: UIView = self.getBackSideView()
     private let margin: Int = 10
-    private let boardSize: CGSize
     private var customAnchorPoint: CGPoint = CGPoint(x: 0.0, y: 0.0)
     private var startTouchPoint: CGPoint!
 

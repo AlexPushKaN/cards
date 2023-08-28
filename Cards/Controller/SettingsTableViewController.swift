@@ -12,6 +12,7 @@ class SettingsTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        view.backgroundColor = .white
         numberOfCardPairsPickerView.dataSource = self
         numberOfCardPairsPickerView.delegate = self
         guard let settingsGame = self.settingsGame else { return }
@@ -83,6 +84,14 @@ class SettingsTableViewController: UITableViewController {
         
         if let settingsGame = self.settingsGame {
             Settings.save(settings: settingsGame)
+        }
+    }
+    
+    override func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        if let header = view as? UITableViewHeaderFooterView {
+            
+            let attributedText = NSAttributedString(string: header.textLabel?.text ?? "", attributes: [NSAttributedString.Key.foregroundColor: UIColor.lightGray])
+            header.textLabel?.attributedText = attributedText
         }
     }
 }

@@ -12,6 +12,7 @@ class CardViewFactory {
         case .square: return CardView<SquareShape>(frame: frame, color: viewColor, boardSize: boardSize)
         case .cross: return CardView<CrossShape>(frame: frame, color: viewColor, boardSize: boardSize)
         case .emptyRect: return CardView<EmptyRectShape>(frame: frame, color: viewColor, boardSize: boardSize)
+        case .emptyCircle: return CardView<EmptyCircleShape>(frame: frame, color: viewColor, boardSize: boardSize)
         }
     }
 

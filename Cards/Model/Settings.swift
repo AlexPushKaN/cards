@@ -2,7 +2,7 @@ import Foundation
 
 class Settings: Codable {
     
-    var cardsPairsCounts: Int = 0
+    var cardsPairsCounts: Int = 4
     var cardTypes: [CardType : Bool] = [:]
     var cardColors: [CardColor : Bool] = [:]
     var cardBackSides: [String : Bool] = [:]

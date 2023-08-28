@@ -2,8 +2,12 @@ import UIKit
 
 class BoardGameController: UIViewController {
 
-    var cardsPairsCounts = 8
+    var cardPairsCount = 4
     var cardViews = [UIView]()
+    var cardViewsForSnapshot = [UIView]()
+    var settingsGame: Settings? = Settings.loadSettings()
+    var snapshot: Snapshot?
+    var delegate: SnapshotProtocol?
     var numberOfCardsFlips = 0 {
         didSet {
             secondLabelView.text = String(numberOfCardsFlips)
@@ -31,47 +35,78 @@ class BoardGameController: UIViewController {
     private var isFrontSide: Bool?
     
     override func loadView() {
-        
         super.loadView()
-        view.backgroundColor = .systemBackground
+        
+        view.backgroundColor = .white
         view.addSubview(backButtonView)
         view.addSubview(startButtonView)
         view.addSubview(flipButtonView)
         view.addSubview(firstLabelView)
         view.addSubview(secondLabelView)
         view.addSubview(boardGameView)
-    }
-
-    private func getNewGame() -> Game {
-
-        if let game = Game(settingsGame: Settings.loadSettings()) {
-            numberOfCardsFlips = 0
-            game.generateCards()
-            return game
-        }
         
-        let game = Game(cardsCount: cardsPairsCounts)
-        numberOfCardsFlips = 0
-        game.generateCards()
+        self.numberOfCardsFlips = snapshot?.numberOfCardsFlips ?? 0
+    }
+    
+    func getNewGame() -> Game {
+        
+        flippedCards = []
+        isFrontSide = false
+        
+        let game = Game()
+        game.cardsCount = cardPairsCount
+        game.setForGame(settings: settingsGame)
+        
+        if let snapshot = snapshot {
+            
+            game.cards = snapshot.cards
+            let cardViews = self.getCardsBy(stepIn: 2, modelData: snapshot.cards, continueGame: true)
+            placeCardsOnBoard(cardViews)
+        } else {
+
+            game.generateCards()
+            let cardViews = self.getCardsBy(stepIn: 1, modelData: game.cards, continueGame: false)
+            placeCardsOnBoard(cardViews)
+            takeSnapshotBoard(cardViews: cardViewsForSnapshot)
+        }
         return game
     }
 
-    private func getCardsBy(modelData: [Card]) -> [UIView] {
-
+    private func getCardsBy(stepIn: Int, modelData: [Card], continueGame: Bool) -> [UIView] {
+        
         var cardViews = [UIView]()
         let cardViewFactory = CardViewFactory()
 
-        for (index, modelCard) in modelData.enumerated() {
-    
-            let cardOne = cardViewFactory.get(modelCard.type, withSize: cardSize, withColor: modelCard.color, andBoardSize: boardGameView.bounds.size)
-            cardOne.tag = index
-            cardViews.append(cardOne)
+        for indexModelCard in stride(from: 0, to: modelData.count, by: stepIn) {
 
-            let cardTwo = cardViewFactory.get(modelCard.type, withSize: cardSize, withColor: modelCard.color, andBoardSize: boardGameView.bounds.size)
-            cardTwo.tag = index
+            let cardOne = cardViewFactory.get(modelData[indexModelCard].type,
+                                              withSize: cardSize,
+                                              withColor: modelData[indexModelCard].color,
+                                              andBoardSize: boardGameView.bounds.size)
+            cardOne.tag = indexModelCard
+            cardViews.append(cardOne)
+                
+            let cardTwo = cardViewFactory.get(modelData[indexModelCard].type,
+                                                  withSize: cardSize,
+                                                  withColor: modelData[indexModelCard].color,
+                                                  andBoardSize: boardGameView.bounds.size)
+            cardTwo.tag = indexModelCard
             cardViews.append(cardTwo)
         }
         
+        if continueGame {
+            
+            for (index, card) in cardViews.enumerated() {
+                
+                card.frame = modelData[index].frame
+                (card as! FlippableView).isFlipped = modelData[index].isFlipped
+                if (card as! FlippableView).isFlipped {
+                    self.flippedCards.append(card)
+                }
+            }
+        }
+            
+        cardViewsForSnapshot = cardViews
         numberOfCards = cardViews.count
         
         for card in cardViews {
@@ -87,11 +122,17 @@ class BoardGameController: UIViewController {
                 }
                 
                 if self.flippedCards.count == 1  {
-                    numberOfCardsFlips += 1
+                    
+                    self.numberOfCardsFlips += 1
                 } else if self.flippedCards.count == 2 {
+                    
                     let firstCard = game.cards[self.flippedCards.first!.tag]
                     let secondCard = game.cards[self.flippedCards.last!.tag]
                     if game.checkCards(firstCard, secondCard) {
+                        for flippedCard in self.flippedCards {
+                            guard let index = cardViewsForSnapshot.firstIndex(of: flippedCard) else { return }
+                            cardViewsForSnapshot.remove(at: index)
+                        }
                         UIView.animate(withDuration: 0.3, animations: {
                             self.flippedCards.first!.layer.opacity = 0
                             self.flippedCards.last!.layer.opacity = 0
@@ -107,6 +148,7 @@ class BoardGameController: UIViewController {
                         }
                     }
                 }
+                takeSnapshotBoard(cardViews: cardViewsForSnapshot)
             }
         }
         return cardViews
@@ -121,13 +163,67 @@ class BoardGameController: UIViewController {
         cardViews = cards
         
         for card in cardViews {
-            let randomXCoordinate = Int.random(in: 0...cardMaxXCoordinate)
-            let randomYCoordinate = Int.random(in: 0...cardMaxYCoordinate)
+            
+            let randomXCoordinate = card.frame.origin.x > 0.0 ? Int(card.frame.origin.x) : Int.random(in: 0...cardMaxXCoordinate)
+            let randomYCoordinate = card.frame.origin.y > 0.0 ? Int(card.frame.origin.y) : Int.random(in: 0...cardMaxYCoordinate)
             card.frame.origin = CGPoint(x: randomXCoordinate, y: randomYCoordinate)
             boardGameView.addSubview(card)
         }
     }
 
+    private func takeSnapshotBoard(cardViews: [UIView]) {
+        
+        self.snapshot = Snapshot()
+        self.snapshot?.numberOfCardsFlips = self.numberOfCardsFlips
+        self.snapshot?.cardsPairsCounts = self.cardPairsCount
+        
+        guard let snapshot = self.snapshot else { return }
+
+        snapshot.cards.removeAll()
+        
+        for cardView in cardViews {
+
+            if let cardView = cardView as? CardView<CircleShape> {
+                
+                let card = Card(type: .circle,
+                                color: CardColor.colorToEnumCase(color: cardView.color),
+                                tag: cardView.tag,
+                                isFlipped: cardView.isFlipped,
+                                frame: cardView.frame)
+                snapshot.cards.append(card)
+                cardView.isFlipped ? snapshot.flippedCards.append(card) : nil
+            } else if let cardView = cardView as? CardView<SquareShape> {
+                
+                let card = Card(type: .square,
+                                color: CardColor.colorToEnumCase(color: cardView.color),
+                                tag: cardView.tag,
+                                isFlipped: cardView.isFlipped,
+                                frame: cardView.frame)
+                snapshot.cards.append(card)
+                cardView.isFlipped ? snapshot.flippedCards.append(card) : nil
+            } else if let cardView = cardView as? CardView<CrossShape> {
+                
+                let card = Card(type: .cross,
+                                color: CardColor.colorToEnumCase(color: cardView.color),
+                                tag: cardView.tag,
+                                isFlipped: cardView.isFlipped,
+                                frame: cardView.frame)
+                snapshot.cards.append(card)
+                cardView.isFlipped ? snapshot.flippedCards.append(card) : nil
+            } else if let cardView = cardView as? CardView<EmptyRectShape> {
+                
+                let card = Card(type: .emptyRect,
+                                color: CardColor.colorToEnumCase(color: cardView.color),
+                                tag: cardView.tag,
+                                isFlipped: cardView.isFlipped,
+                                frame: cardView.frame)
+                snapshot.cards.append(card)
+                cardView.isFlipped ? snapshot.flippedCards.append(card) : nil
+            }
+        }
+        self.delegate!.continueGame = self.snapshot
+    }
+    
     private func showCongratulationAlert(score: Int) {
         
         let alert = AlertManager.getCongratulationAlert(score: score,
@@ -136,14 +232,18 @@ class BoardGameController: UIViewController {
                 guard let self = self else { return }
                 self.flippedCards = []
                 self.isFrontSide = false
+                self.numberOfCardsFlips = 0
+                snapshot = nil
                 self.game = self.getNewGame()
-                let cards = self.getCardsBy(modelData: self.game.cards)
-                self.placeCardsOnBoard(cards)
+                delegate!.continueGame = nil
+                Snapshot.save(snapshot: nil)
             },
             cancelCompletion: { [weak self] in
                 
                 guard let self = self else { return }
                 self.numberOfCardsFlips = 0
+                delegate!.continueGame = nil
+                Snapshot.save(snapshot: nil)
                 self.dismiss(animated: true)
             }
         )
@@ -165,11 +265,14 @@ extension BoardGameController {
         button.frame.origin.x = 20.0
         button.setTitleColor(.black, for: .normal)
         button.setTitleColor(.gray, for: .highlighted)
-        button.backgroundColor = .systemGray4
+        button.backgroundColor = .lightGray
         button.layer.cornerRadius = 10.0
         
         button.addAction(UIAction(handler: { action in
             
+            if self.cardViewsForSnapshot.count > 0 {
+                self.takeSnapshotBoard(cardViews: self.cardViewsForSnapshot)
+            }
             self.dismiss(animated: true)
         }), for: .touchUpInside)
         
@@ -187,16 +290,12 @@ extension BoardGameController {
         button.frame.origin.x = backButtonView.frame.maxX + 10
         button.setTitleColor(.black, for: .normal)
         button.setTitleColor(.gray, for: .highlighted)
-        button.backgroundColor = .systemGray4
+        button.backgroundColor = .lightGray
         button.layer.cornerRadius = 10.0
         
         button.addAction(UIAction(handler: { action in
-            
-            self.flippedCards = []
-            self.isFrontSide = false
+
             self.game = self.getNewGame()
-            let cards = self.getCardsBy(modelData: self.game.cards)
-            self.placeCardsOnBoard(cards)
         }), for: .touchUpInside)
         
         return button
@@ -213,7 +312,7 @@ extension BoardGameController {
         button.frame.origin.x = startButtonView.frame.maxX + 10.0
         button.setTitleColor(.black, for: .normal)
         button.setTitleColor(.gray, for: .highlighted)
-        button.backgroundColor = .systemGray4
+        button.backgroundColor = .lightGray
         button.layer.cornerRadius = 10.0
         button.addAction(UIAction(handler: { action in
             
