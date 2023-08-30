@@ -13,12 +13,13 @@ class MainViewController: UIViewController, SnapshotProtocol {
     lazy var goToTheGameButtonView = UIButton(frame: CGRect(x: 0, y: 0, width: 200.0, height: 50.0))
     lazy var settingsButtonView = UIButton(frame: CGRect(x: 0, y: 0, width: 200.0, height: 50.0))
     lazy var exitButtonView = UIButton(frame: CGRect(x: 0, y: 0, width: 200.0, height: 50.0))
-    lazy var sceneAnimation = SceneAnimation(cardCounts: 5, controller: self)
+    lazy var sceneAnimation = SceneAnimation(view: self.view)
     
     override func loadView() {
         super.loadView()
         
         view.backgroundColor = .white
+        sceneAnimation.getCardsOnScene(forAnimation: 5)
         sceneAnimation.animatedCards()
         configureViewsOnScene()
     }

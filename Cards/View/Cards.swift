@@ -117,7 +117,7 @@ class CardView<ShapeType: ShapeLayerProtocol>: UIView, FlippableView {
         self.frame.origin.x = touches.first!.location(in: window).x - customAnchorPoint.x
         self.frame.origin.y = touches.first!.location(in: window).y - customAnchorPoint.y
     }
-    
+
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
 
         var moveOffTheBoard: Bool = false
@@ -138,7 +138,7 @@ class CardView<ShapeType: ShapeLayerProtocol>: UIView, FlippableView {
             self.frame.origin.y = boardSize.height - self.bounds.height
             moveOffTheBoard = true
         }
-        
+
         if self.frame.origin == startTouchPoint && moveOffTheBoard == false {
             flip(all: false)
         }
